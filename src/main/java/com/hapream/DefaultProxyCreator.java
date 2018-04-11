@@ -18,6 +18,18 @@ public class DefaultProxyCreator implements ProxyCreator {
         return result;
     }
 
+    @Override
+    public <T> T createInterceptorProxy(ClassLoader loader, Object target, Interceptor interceptor, Class<?>... proxyClasses) {
+        T result = getCapableProxyCreator(proxyClasses).createInterceptorProxy(loader, target, interceptor, proxyClasses);
+        return result;
+    }
+
+    @Override
+    public <T> T createDelegatorProxy(ClassLoader loader, ObjectProvider objectProvider, Class<?>... proxyClasses) {
+        T result = getCapableProxyCreator(proxyClasses).createDelegatorProxy(loader, objectProvider, proxyClasses);
+        return result;
+    }
+
 
     private ProxyCreator getCapableProxyCreator(Class<?>... proxyClasses) {
         for (ProxyCreator proxyCreator : SERVICES) {

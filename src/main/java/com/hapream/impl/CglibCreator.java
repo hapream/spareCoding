@@ -1,10 +1,7 @@
 package com.hapream.impl;
 
 import com.google.common.collect.Sets;
-import com.hapream.Interceptor;
-import com.hapream.Invocation;
-import com.hapream.ObjectInvoker;
-import com.hapream.ProxyCreator;
+import com.hapream.*;
 import com.hapream.exception.ProxyCreatorException;
 import com.hapream.util.ProxyUtil;
 import net.sf.cglib.proxy.*;
@@ -50,6 +47,18 @@ public class CglibCreator implements ProxyCreator {
         enhancer.setSuperclass(getSuperclass(proxyClasses));
         enhancer.setCallbacks(new Callback[]{new InterceptorBridge(target, interceptor), new EqualsHandler(), new HashCodeHandler()});
 
+        T result = (T) enhancer.create();
+        return result;
+    }
+
+    @Override
+    public <T> T createDelegatorProxy(ClassLoader loader, ObjectProvider objectProvider, Class<?>... proxyClasses) {
+        Enhancer enhancer = new Enhancer();
+        enhancer.setClassLoader(loader);
+        enhancer.setInterfaces(toInterfaces(proxyClasses));
+        enhancer.setSuperclass(getSuperclass(proxyClasses));
+        enhancer.setCallbackFilter(callbackFilter);
+        enhancer.setCallbacks(new Callback[]{new DelegatorBridge(objectProvider), new EqualsHandler(), new HashCodeHandler()});
         T result = (T) enhancer.create();
         return result;
     }
@@ -172,6 +181,9 @@ public class CglibCreator implements ProxyCreator {
         }
     }
 
+    /**
+     *
+     */
     private static class InterceptorBridge implements MethodInterceptor {
 
         private Interceptor interceptor;
@@ -189,42 +201,59 @@ public class CglibCreator implements ProxyCreator {
         @Override
         public Object intercept(Object obj, Method method, Object[] args, MethodProxy proxy) throws Throwable {
 
-            return interceptor.intercepet( new MethodInvocation(target, method,args, proxy));
+            return interceptor.intercepet(new MethodInvocation(target, method, args, proxy, obj));
         }
 
 
     }
 
-    private  static class MethodInvocation implements Invocation {
+    private static class MethodInvocation implements Invocation {
 
         private Object[] args;
         private Method method;
         private Object target;
         private MethodProxy methodProxy;
+        private Object proxy;
 
-        public MethodInvocation(Object target, Method method, Object[] args, MethodProxy proxy) {
-
-
+        public MethodInvocation(Object target, Method method, Object[] args, MethodProxy proxy, Object object) {
+            this.target = target;
+            this.method = method;
+            this.args = args;
+            this.methodProxy = proxy;
+            this.proxy = object;
         }
 
         @Override
         public Object[] getArguments() {
-            return new Object[0];
+            return args;
         }
 
         @Override
         public Method getMethod() {
-            return null;
+            return method;
         }
 
         @Override
         public Object getProxy() {
-            return null;
+            return proxy;
         }
 
         @Override
         public Object proceed() throws Throwable {
-            return null;
+            return methodProxy.invoke(target, args);
+        }
+    }
+
+    private static class DelegatorBridge implements Dispatcher {
+        private ObjectProvider objectProvider;
+
+        public DelegatorBridge(ObjectProvider objectProvider) {
+            this.objectProvider = objectProvider;
+        }
+
+        @Override
+        public Object loadObject() throws Exception {
+            return objectProvider.getObject();
         }
     }
 }

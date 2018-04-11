@@ -8,4 +8,6 @@ public interface ProxyCreator {
 
 
     <T> T createInterceptorProxy(ClassLoader loader, Object target, Interceptor interceptor, Class<?>... proxyClasses);
+
+    <T> T createDelegatorProxy(ClassLoader loader, ObjectProvider objectProvider, Class<?>... proxyClasses);
 }

@@ -1,7 +1,6 @@
 package com.hapream.demo;
 
-import com.hapream.ObjectInvoker;
-import com.hapream.ProxyCreator;
+import com.hapream.*;
 import com.hapream.impl.CglibCreator;
 import com.hapream.util.ProxyUtil;
 import org.junit.Test;
@@ -40,8 +39,52 @@ public class ProxyCreatorDemo {
                 return "hello";
             }
         };
-
         EchoService echoService = proxyCreator.createInvokerProxy(Thread.currentThread().getContextClassLoader(), objectInvoker, EchoService.class);
         assertThat(echoService.echo("wprld"), Matchers.is("hello"));
+    }
+
+    @Test
+    public void testInterceptor() {
+        ProxyCreator proxyCreator = ProxyUtil.getInstance();
+        final Interceptor interceptor = new Interceptor() {
+            @Override
+            public Object intercepet(Invocation invocation) throws Throwable {
+                return invocation.proceed() + "world";
+            }
+        };
+        EchoService echoService = proxyCreator.createInterceptorProxy(Thread.currentThread().getContextClassLoader(),
+                new EchoServiceImpl(), interceptor, EchoService.class);
+        assertThat(echoService.echo("Hello "), Matchers.is("Hello world"));
+    }
+
+    @Test
+    public void testDelegate() {
+        ProxyCreator proxyCreator = ProxyUtil.getInstance();
+
+        ObjectProvider provider = new ObjectProvider() {
+            @Override
+            public Object getObject() {
+                return new DecoratorEchoService(new EchoServiceImpl());
+            }
+        };
+
+        EchoService echoService = proxyCreator.createDelegatorProxy(Thread.currentThread().getContextClassLoader(), provider, EchoService.class);
+
+        assertThat(echoService.echo("wow"), Matchers.is("WOW"));
+    }
+
+    private static class DecoratorEchoService implements EchoService {
+        private EchoService echoService;
+
+
+        public DecoratorEchoService(EchoService echoService) {
+            this.echoService = echoService;
+        }
+
+        @Override
+        public String echo(String message) {
+            message = message.toUpperCase();
+            return echoService.echo(message);
+        }
     }
 }
