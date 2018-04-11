@@ -1,6 +1,8 @@
 package com.hapream.impl;
 
 import com.google.common.collect.Sets;
+import com.hapream.Interceptor;
+import com.hapream.Invocation;
 import com.hapream.ObjectInvoker;
 import com.hapream.ProxyCreator;
 import com.hapream.exception.ProxyCreatorException;
@@ -35,6 +37,19 @@ public class CglibCreator implements ProxyCreator {
         enhancer.setCallbacks(new Callback[]{
                 new InvokerBridge(invoker), new EqualsHandler(), new HashCodeHandler()
         });
+        T result = (T) enhancer.create();
+        return result;
+    }
+
+    @Override
+    public <T> T createInterceptorProxy(ClassLoader loader, Object target, Interceptor interceptor, Class<?>... proxyClasses) {
+        Enhancer enhancer = new Enhancer();
+        enhancer.setClassLoader(loader);
+        enhancer.setCallbackFilter(callbackFilter);
+        enhancer.setInterfaces(toInterfaces(proxyClasses));
+        enhancer.setSuperclass(getSuperclass(proxyClasses));
+        enhancer.setCallbacks(new Callback[]{new InterceptorBridge(target, interceptor), new EqualsHandler(), new HashCodeHandler()});
+
         T result = (T) enhancer.create();
         return result;
     }
@@ -157,4 +172,59 @@ public class CglibCreator implements ProxyCreator {
         }
     }
 
+    private static class InterceptorBridge implements MethodInterceptor {
+
+        private Interceptor interceptor;
+        private Object target;
+
+        public InterceptorBridge() {
+        }
+
+        public InterceptorBridge(Object target, Interceptor interceptor) {
+            this.target = target;
+            this.interceptor = interceptor;
+
+        }
+
+        @Override
+        public Object intercept(Object obj, Method method, Object[] args, MethodProxy proxy) throws Throwable {
+
+            return interceptor.intercepet( new MethodInvocation(target, method,args, proxy));
+        }
+
+
+    }
+
+    private  static class MethodInvocation implements Invocation {
+
+        private Object[] args;
+        private Method method;
+        private Object target;
+        private MethodProxy methodProxy;
+
+        public MethodInvocation(Object target, Method method, Object[] args, MethodProxy proxy) {
+
+
+        }
+
+        @Override
+        public Object[] getArguments() {
+            return new Object[0];
+        }
+
+        @Override
+        public Method getMethod() {
+            return null;
+        }
+
+        @Override
+        public Object getProxy() {
+            return null;
+        }
+
+        @Override
+        public Object proceed() throws Throwable {
+            return null;
+        }
+    }
 }
