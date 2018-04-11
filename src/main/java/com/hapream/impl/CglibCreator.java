@@ -3,10 +3,12 @@ package com.hapream.impl;
 import com.google.common.collect.Sets;
 import com.hapream.ObjectInvoker;
 import com.hapream.ProxyCreator;
+import com.hapream.exception.ProxyCreatorException;
 import com.hapream.util.ProxyUtil;
 import net.sf.cglib.proxy.*;
 
 import java.io.Serializable;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Set;
@@ -15,11 +17,20 @@ public class CglibCreator implements ProxyCreator {
 
     private static final CglibProxyFactoryCallbackFilter callbackFilter = new CglibProxyFactoryCallbackFilter();
 
+    public boolean canProxy(Class<?>[] proxyClasses) {
+        try {
+            getSuperclass(proxyClasses);
+            return true;
+        } catch (ProxyCreatorException e) {
+            return false;
+        }
+    }
+
     public <T> T createInvokerProxy(ClassLoader loader, ObjectInvoker invoker, Class<?>... proxyClasses) {
         Enhancer enhancer = new Enhancer();
         enhancer.setClassLoader(loader);
         enhancer.setInterfaces(toInterfaces(proxyClasses));
-        enhancer.setSuperclass(getSupperclass(proxyClasses));
+        enhancer.setSuperclass(getSuperclass(proxyClasses));
         enhancer.setCallbackFilter(callbackFilter);
         enhancer.setCallbacks(new Callback[]{
                 new InvokerBridge(invoker), new EqualsHandler(), new HashCodeHandler()
@@ -61,7 +72,7 @@ public class CglibCreator implements ProxyCreator {
      * @param proxyClasses
      * @return
      */
-    private static Class<?> getSupperclass(Class<?>[] proxyClasses) {
+    private static Class<?> getSuperclass(Class<?>[] proxyClasses) {
         final Class<?>[] superclasses = toNonInterFaces(proxyClasses);
         switch (superclasses.length) {
             case 0:
@@ -69,11 +80,35 @@ public class CglibCreator implements ProxyCreator {
             case 1:
                 Class<?> superclass = superclasses[0];
                 if (Modifier.isFinal(superclass.getModifiers())) {
-                    throw new RuntimeException("");
+                    throw new ProxyCreatorException(
+                            "Proxy class cannot extend " + superclass.getName() + " as it is final."
+                    );
                 }
-
+                if (!hadDefaultConstructor(superclass)) {
+                    throw new ProxyCreatorException(
+                            "Proxy cannot extend " + superclass.getName() + ", Because it had no visible  default constructor"
+                    );
+                }
+                return superclass;
+            default:
+                throw new ProxyCreatorException("");
         }
-        return null;
+    }
+
+    /**
+     * constructor public and lenght is 0
+     *
+     * @param superclass
+     * @return
+     */
+    private static boolean hadDefaultConstructor(Class<?> superclass) {
+        final Constructor<?>[] declaredConstructors = superclass.getDeclaredConstructors();
+        for (Constructor<?> constructor : declaredConstructors) {
+            if (constructor.getParameterTypes().length == 0 && (Modifier.isPublic(constructor.getModifiers()) || Modifier.isProtected(constructor.getModifiers()))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static class CglibProxyFactoryCallbackFilter implements CallbackFilter {

@@ -2,5 +2,7 @@ package com.hapream;
 
 public interface ProxyCreator {
 
-    <T> T createInvokerProxy(ClassLoader loader, ObjectInvoker invoker, Class<?>... proxyClass);
+    boolean canProxy(Class<?>[] proxyClasses);
+
+    <T> T createInvokerProxy(ClassLoader loader, ObjectInvoker invoker, Class<?>... proxyClasses);
 }
